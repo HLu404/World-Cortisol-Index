@@ -790,9 +790,18 @@ function initGlobe() {
   el.addEventListener('mousedown', () => { globe.controls().autoRotate = false; });
   el.addEventListener('touchstart', () => { globe.controls().autoRotate = false; }, { passive: true });
 
-  const resize = () => globe.width(el.clientWidth).height(el.clientHeight);
+  const resize = () => {
+    const w = el.clientWidth, h = el.clientHeight;
+    if (w > 0 && h > 0) globe.width(w).height(h);
+  };
   resize();
   window.addEventListener('resize', resize);
+  // ResizeObserver fires whenever the element gains real dimensions —
+  // this is what catches the case where initGlobe() ran while #app was
+  // display:none (user stayed on homepage until loading finished).
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(resize).observe(el);
+  }
   globeInitialized = true;
 }
 
@@ -1442,7 +1451,15 @@ function initHomepage() {
     setTimeout(() => {
       app.classList.add('visible');
       if (stopHpCanvas) stopHpCanvas();
-    }, 200);
+      // Force globe to measure its real dimensions now that #app is visible.
+      // Without this, a globe initialised while #app was display:none stays
+      // stuck at 0×0 and interactions never work.
+      if (globe) {
+        const el = document.getElementById('globe');
+        const w = el.clientWidth, h = el.clientHeight;
+        if (w > 0 && h > 0) globe.width(w).height(h);
+      }
+    }, 250);
     setTimeout(() => { hp.style.display = 'none'; }, 1000);
   });
 
@@ -1596,24 +1613,27 @@ initHomepage();
   } catch(e) {
     $status.textContent = 'FAILED TO LOAD GLOBE LIBRARY — CHECK CONNECTION';
     $loaderText.textContent = 'Could not load required scripts. Please reload.';
+    $overlay.classList.add('hidden');
     return;
   }
+
   try {
     await loadAll();
   } catch(e) {
     console.error('loadAll failed:', e);
-    $status.textContent = `NETWORK ERROR — DEMO MODE`;
-    $loaderText.textContent = 'Using built-in demo dataset…';
-    if (!countriesGeo || !citiesGeo) {
-      $loaderText.textContent = 'Cannot load map data. Check your internet connection and reload.';
-      $status.textContent = 'OFFLINE — RELOAD TO RETRY';
-      return;
+    // Fall back to demo data — do NOT return here.  Returning would leave the
+    // loading overlay stuck on screen and skip globe initialisation entirely.
+    if (!news) {
+      const { merged, added, firstFetch } = mergeIntoStore(DEMO_ARTICLES);
+      sessionNewCount = added;
+      news = buildNewsPayload(merged.length > 0 ? merged : DEMO_ARTICLES);
+      updateArchivePanel(merged.length, sessionNewCount, Object.keys(news.countries).length, firstFetch);
     }
-    const { merged, added, firstFetch } = mergeIntoStore(DEMO_ARTICLES);
-    sessionNewCount = added;
-    news = buildNewsPayload(merged);
-    updateArchivePanel(merged.length, sessionNewCount, Object.keys(news.countries).length, firstFetch);
+    $status.textContent = countriesGeo
+      ? 'NETWORK ERROR — DEMO MODE'
+      : 'GEO DATA UNAVAILABLE — LIMITED MODE';
   }
+
   try {
     initGlobe();
     initChart();
@@ -1621,5 +1641,7 @@ initHomepage();
     console.error('Globe/chart init failed:', e);
     $status.textContent = `RENDER ERROR: ${e.message}`;
   }
+
+  // Always hide the loading overlay — even if parts of the above failed.
   $overlay.classList.add('hidden');
 })();
