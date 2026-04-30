@@ -2,6 +2,8 @@
 
 A real-time global "stress map" — a 3D Earth where each country is colored by the sentiment of its current news headlines. Articles are pulled from **GDELT, GNews, NewsData,** and **NewsAPI**, scored with a positive/negative lexicon, and rendered on a rotating globe.
 
+<img width="1889" height="893" alt="image" src="https://github.com/user-attachments/assets/a931d07f-37c4-4ca2-8222-da3dffaa0d97" />
+
 ## What the app does
 
 - **Globe view** — a globe visualization of the world. Each article appears as a dot on its country and region.
