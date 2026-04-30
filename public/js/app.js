@@ -1029,9 +1029,23 @@ function showLocation(loc) {
 // CHART
 // ─────────────────────────────────────────
 function initChart() {
-  const entries = Object.entries(news.countries || {})
-    .filter(([,v]) => v && v.count >= 1)
-    .sort((a, b) => b[1].cortisol - a[1].cortisol);
+  const allEntries = Object.entries(news.countries || {})
+    .filter(([,v]) => v && v.count >= 1);
+
+  if (allEntries.length === 0) { $chartSummary.textContent = 'No data — try refreshing.'; return; }
+
+  // Weighted global mean used as Bayesian prior
+  const totalArt = allEntries.reduce((s,[,v]) => s + v.count, 0);
+  const globalMean = allEntries.reduce((s,[,v]) => s + v.cortisol * v.count, 0) / Math.max(1, totalArt);
+
+  // Confidence-weighted rank score: a country with k=5 articles worth of
+  // "prior" needs ~5 real articles before its own cortisol dominates.
+  // This prevents 1-article outliers (e.g. VN cortisol=1.0) from topping
+  // the chart over countries with many high-stress articles.
+  const PRIOR = 5;
+  const entries = allEntries
+    .map(([iso, v]) => [iso, v, (v.count * v.cortisol + PRIOR * globalMean) / (v.count + PRIOR)])
+    .sort((a, b) => b[2] - a[2]);
 
   const top = entries.slice(0, 20);
   const ctx = document.getElementById('chart').getContext('2d');
@@ -1060,8 +1074,8 @@ function initChart() {
           padding: 9,
           callbacks: {
             label: ctx => {
-              const [, v] = top[ctx.dataIndex];
-              return [`Cortisol: ${v.cortisol.toFixed(2)}`, `Tone: ${v.avgTone.toFixed(2)}`, `${v.count} articles`];
+              const [, v, rankScore] = top[ctx.dataIndex];
+              return [`Cortisol: ${v.cortisol.toFixed(2)}`, `Articles: ${v.count}`, `Rank score: ${rankScore.toFixed(2)}`];
             },
           },
         },
@@ -1081,10 +1095,8 @@ function initChart() {
     },
   });
 
-  if (entries.length === 0) { $chartSummary.textContent = 'No data — try refreshing.'; return; }
-  const totalArt = entries.reduce((s,[,v]) => s + v.count, 0);
-  const weighted = entries.reduce((s,[,v]) => s + v.cortisol * v.count, 0) / Math.max(1, totalArt);
-  $chartSummary.innerHTML = `WORLD: <b style="color:${cortisolColor(weighted)}">${weighted.toFixed(2)}</b> · ${entries.length} COUNTRIES · ${fmtNum(totalArt)} ARTICLES`;
+  const weighted = globalMean;
+  $chartSummary.innerHTML = `WORLD: <b style="color:${cortisolColor(weighted)}">${weighted.toFixed(2)}</b> · ${allEntries.length} COUNTRIES · ${fmtNum(totalArt)} ARTICLES`;
 }
 
 // ─────────────────────────────────────────
