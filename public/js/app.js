@@ -97,6 +97,13 @@ corruption blackmail extort extortion harass harassment harassed explosion
 exploded explosive explosions detonated detonation injured hostility nuclear
 biological chemical weapons weapon armed airstrike airstrikes shelling shelled
 displaced displacement refugee refugees asylum crisis emergenc
+coup overthrow assassination assassinate assassinated tariff tariffs
+dispute disputes escalate escalated escalation ultimatum impose imposed
+imposed occupation occupied annexed annexation suppressed suppression
+deadlock standoff offensive purge purged exile exiled detained detention
+indicted indictment abducted abduction deported deportation expelled
+blocked blockade seized seizure volatile volatility instability
+catastrophic catastrophe famine drought humanitarian emergency declared
 `.trim().split(/\s+/));
 
 const POSITIVE_WORDS = new Set(`
@@ -120,10 +127,11 @@ thanks thanked blessing blessed pioneer pioneering innovate innovated innovation
 innovative launch launches launched boost boosts boosted strengthen collaborate
 collaborated collaboration unite united unify renew renewed prosper prosperity
 flourish flourishing thriving vibrant sustainable development advance advances
-advanced invest investment investment fund funded funding breakthrough discovery
-discovered alliance peace-deal diplomatic diplomacy accord historically record
-surpass surpassed exceeded exceeding landmark achieve historic monumental
-humanitarian aid helping helped awarded scholarship donated clean renewable
+advanced invest investment fund funded funding discovery discovered alliance
+diplomatic diplomacy accord historically landmark historic monumental
+humanitarian aid helping helped scholarship donated clean renewable
+signed pact deal normalize normalized normalization stabilize stabilized
+ceasefire truce reconciliation reconstruction relief reopened restored reopens
 `.trim().split(/\s+/));
 
 const AMBIGUOUS_CITIES = new Set([
@@ -223,9 +231,12 @@ function nameOf(f) {
 }
 function cortisolColor(c, alpha=1) {
   const x = Math.max(0, Math.min(1, c));
-  const hue = (1 - x) * 120;
-  const sat = 55 + Math.abs(0.5 - x) * 30;
-  const light = 50 - Math.abs(0.5 - x) * 5;
+  // Hue: 120° (green) → 60° (yellow) → 0° (red)
+  const hue   = (1 - x) * 120;
+  // Saturation peaks at the extremes, dips slightly at mid yellow
+  const sat   = 65 + Math.abs(0.5 - x) * 35;
+  // Lightness drops toward the red end so high-cortisol dots feel hotter
+  const light = 52 - x * 14;
   return `hsla(${hue.toFixed(1)}, ${sat.toFixed(0)}%, ${light.toFixed(0)}%, ${alpha})`;
 }
 // Deterministic earthy-green for a polygon
@@ -285,17 +296,24 @@ function fmtDate(ts) {
 // ─────────────────────────────────────────
 const wordRe = /[A-Za-z][A-Za-z'-]+/g;
 function computeTone(text) {
-  if (!text) return 0;
+  if (!text) return -0.15;
   let pos = 0, neg = 0;
   for (const w of (text.toLowerCase().match(wordRe) || [])) {
     if (POSITIVE_WORDS.has(w)) pos++;
     if (NEGATIVE_WORDS.has(w)) neg++;
   }
-  if (pos === 0 && neg === 0) return 0;
+  // No keyword match: apply a slight negative lean.
+  // Global news inherently skews toward stress-inducing events.
+  if (pos === 0 && neg === 0) return -0.15;
   return (pos - neg) / (pos + neg);
 }
 function toneToCortisol(tone) {
-  return Math.max(0, Math.min(1, (1 - tone) / 2));
+  const raw = Math.max(0, Math.min(1, (1 - tone) / 2));
+  // Stretch scores away from 0.5 so subtle differences become visible.
+  // Uses a power curve: displacements from centre are amplified.
+  const d = raw - 0.5;
+  const stretched = Math.sign(d) * Math.pow(Math.abs(d) * 2, 0.65) * 0.5;
+  return Math.max(0, Math.min(1, 0.5 + stretched));
 }
 
 // ─────────────────────────────────────────
@@ -663,12 +681,16 @@ function buildNewsPayload(articles) {
     if (!loc) continue;
 
     const tone = computeTone(title);
-    // Prefer the HF-computed cortisol score supplied by the backend;
-    // fall back to the local word-lexicon when it is absent (no HF key,
-    // or article loaded from a pre-HF localStorage snapshot).
-    const cortisol = (typeof art.cortisol === 'number')
-      ? art.cortisol
-      : toneToCortisol(tone);
+    const lexCortisol = toneToCortisol(tone);
+    // Use the HF score when it is a real (non-neutral) result.
+    // HF stamps exactly 0.5 on every article that times out — that sentinel
+    // value is indistinguishable from "genuinely neutral" so we prefer the
+    // lexicon whenever HF returns exactly 0.500, giving every dot a score
+    // derived from the actual headline words.
+    const hfCortisol = typeof art.cortisol === 'number' ? art.cortisol : null;
+    const cortisol = (hfCortisol !== null && Math.abs(hfCortisol - 0.5) > 0.002)
+      ? hfCortisol
+      : lexCortisol;
     const key = `${(Math.round(loc.lat*2)/2).toFixed(1)},${(Math.round(loc.lon*2)/2).toFixed(1)}`;
 
     if (!locationBuckets[key]) {
@@ -782,19 +804,11 @@ function updateGlobeData() {
       .polygonsData(countriesGeo.features)
       .polygonAltitude(d => d === hoveredCountry ? 0.014 : 0.008)
       .polygonCapColor(d => {
-        if (d === hoveredCountry) {
-          const c = news?.countries?.[isoOf(d)];
-          if (c) return cortisolColor(c.cortisol, 0.92);
-          return 'rgba(180, 200, 170, 0.65)';
-        }
+        if (d === hoveredCountry) return 'rgba(180, 200, 170, 0.65)';
         return landColor(isoOf(d) || nameOf(d), 0.92);
       })
       .polygonSideColor(d => {
-        if (d === hoveredCountry) {
-          const c = news?.countries?.[isoOf(d)];
-          if (c) return cortisolColor(c.cortisol, 0.4);
-          return 'rgba(180, 200, 170, 0.3)';
-        }
+        if (d === hoveredCountry) return 'rgba(180, 200, 170, 0.3)';
         return landColor(isoOf(d) || nameOf(d), 0.35);
       })
       .polygonStrokeColor(() => 'rgba(20, 60, 30, 0.55)')
@@ -1464,6 +1478,113 @@ $refresh.addEventListener('click', refresh);
     const isOpen = panel.classList.toggle('open');
     toggle.setAttribute('aria-expanded', String(isOpen));
     if (isOpen) animateBriefSummaries();
+  });
+})();
+
+// ─────────────────────────────────────────
+// CHAT PANEL
+// ─────────────────────────────────────────
+(function () {
+  const panel  = document.getElementById('chat-panel');
+  const toggle = document.getElementById('chat-toggle');
+  if (!panel || !toggle) return;
+  toggle.addEventListener('click', () => {
+    const isOpen = panel.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) document.getElementById('chat-input')?.focus();
+  });
+})();
+
+const MAX_CHAT_MESSAGES = 40; // trim history beyond this to prevent DOM bloat
+
+function appendChatMessage(role, text) {
+  const $msgs = document.getElementById('chat-messages');
+  if (!$msgs) return null;
+
+  // Trim oldest messages once we hit the cap (keep the first welcome bubble).
+  const bubbles = $msgs.querySelectorAll('.chat-msg');
+  if (bubbles.length >= MAX_CHAT_MESSAGES) bubbles[1]?.remove();
+
+  const div = document.createElement('div');
+  div.className = `chat-msg chat-msg-${role}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble';
+  bubble.textContent = text;
+  div.appendChild(bubble);
+  $msgs.appendChild(div);
+  $msgs.scrollTop = $msgs.scrollHeight;
+  return div;
+}
+
+function appendTypingIndicator() {
+  const $msgs = document.getElementById('chat-messages');
+  if (!$msgs) return null;
+  const div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-ai chat-msg-typing';
+  div.innerHTML = `<div class="chat-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  $msgs.appendChild(div);
+  $msgs.scrollTop = $msgs.scrollHeight;
+  return div;
+}
+
+async function sendChatMessage() {
+  const $input  = document.getElementById('chat-input');
+  const $send   = document.getElementById('chat-send');
+  const question = ($input?.value || '').trim();
+  if (!question) return;
+
+  // Guard: need articles loaded
+  if (!briefArticles || briefArticles.length === 0) {
+    appendChatMessage('error', 'The news feed hasn\'t loaded yet. Please wait a moment and try again.');
+    return;
+  }
+
+  // Show the user's message and clear the input immediately
+  appendChatMessage('user', question);
+  $input.value = '';
+
+  // Disable controls while waiting for the response
+  $input.disabled = true;
+  if ($send) $send.disabled = true;
+
+  const $typing = appendTypingIndicator();
+
+  try {
+    const r = await fetch('/api/chat', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ question, articles: briefArticles }),
+      signal:  AbortSignal.timeout(30_000), // 30 s hard timeout
+    });
+
+    const data = await r.json().catch(() => ({ error: 'Malformed response from server.' }));
+    $typing?.remove();
+
+    if (!r.ok) {
+      appendChatMessage('error', data.error || `Server error (${r.status}). Please try again.`);
+    } else {
+      appendChatMessage('ai', data.answer);
+    }
+  } catch (err) {
+    $typing?.remove();
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      appendChatMessage('error', 'Request timed out. The AI service may be busy — please try again.');
+    } else {
+      appendChatMessage('error', 'Connection failed. Check your internet connection and try again.');
+    }
+  } finally {
+    if ($input)  { $input.disabled  = false; $input.focus(); }
+    if ($send)   { $send.disabled   = false; }
+  }
+}
+
+// Wire up the send button and Enter key for the chat input
+(function () {
+  const $send  = document.getElementById('chat-send');
+  const $input = document.getElementById('chat-input');
+  if ($send)  $send.addEventListener('click', sendChatMessage);
+  if ($input) $input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
   });
 })();
 

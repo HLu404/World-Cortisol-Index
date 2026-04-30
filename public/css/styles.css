@@ -18,7 +18,16 @@
   --font-body: 'Outfit', -apple-system, sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow: hidden; }
+html { height: 100%; }
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow: hidden;
+  /* Prevent elastic over-scroll on macOS Safari from exposing background */
+  overscroll-behavior: none;
+}
 
 /* ═══════════════════════════════════════
    HOMEPAGE
@@ -141,6 +150,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   background: var(--panel);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   overflow: hidden;
 }
@@ -249,7 +259,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #app {
   display: grid;
   grid-template-rows: auto 1fr;
-  height: 100vh;
+  height: 100vh;       /* fallback for older browsers */
+  height: 100dvh;      /* dvh = dynamic viewport height: excludes Safari browser chrome */
   opacity: 0;
   transition: opacity 0.7s 0.2s ease;
 }
@@ -262,10 +273,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   padding: 12px 22px;
   background: linear-gradient(180deg, rgba(4,6,14,0.97) 0%, rgba(4,6,14,0.6) 100%);
   border-bottom: 1px solid var(--panel-border);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   z-index: 10;
+  flex-shrink: 0;  /* never let topbar grow and push globe area down */
+  min-width: 0;
 }
-.brand { display: flex; gap: 12px; align-items: center; }
+.brand { display: flex; gap: 12px; align-items: center; flex-shrink: 0; }
 .brand-icon {
   width: 38px; height: 38px; border-radius: 10px;
   background: linear-gradient(135deg, var(--good), var(--bad));
@@ -279,10 +293,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 .brand .tagline { font-size: 11px; color: var(--text-dim); font-weight: 300; margin-top: 1px; }
 
-.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .status {
   font-family: var(--font-display); color: var(--text-dim); font-size: 11px;
-  max-width: 440px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; flex-shrink: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .brand .tagline { display: none; }
+  .status { max-width: 180px; }
+}
+@media (max-width: 600px) {
+  .status { display: none; }
+  .topbar { padding: 10px 14px; }
 }
 #refresh {
   font-family: var(--font-display); background: transparent;
@@ -300,16 +323,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 #home-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 
-/* ── Layout (UPDATED: Flexbox instead of rigid grid) ── */
+/* ── Layout ── */
 main {
   display: flex;
-  width: 100vw;
-  height: 100vh; /* Forces the app shell to exactly 100% of the screen */
-  overflow: hidden; /* Prevents accidental scrollbars */
+  /* Do NOT set height/width here — this is the 1fr grid row of #app.
+     100vh on main would add to the topbar height and overflow the viewport. */
+  min-height: 0;   /* Safari: flex/grid children must opt-in to shrinking */
+  overflow: hidden;
 }
 @media (max-width: 900px) {
   main { flex-direction: column; }
-  #sidebar { flex: 1; max-height: 48vh; }
+  #sidebar { flex: 1; min-width: 0; max-height: 46vh; }
 }
 
 /* ── Globe (UPDATED: Object-fit containment) ── */
@@ -337,6 +361,7 @@ main {
   z-index: 100; /* Forces it above the map */
   background: var(--panel); border: 1px solid var(--panel-border);
   border-radius: 8px; padding: 9px 14px;
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   font-family: var(--font-display); font-size: 10px; color: var(--text-dim);
   letter-spacing: 0.5px; text-transform: uppercase;
@@ -378,11 +403,12 @@ main {
   width: 0%; transition: width 0.4s ease;
 }
 
-/* ── Sidebar (UPDATED: Flexible width) ── */
+/* ── Sidebar ── */
 #sidebar {
-  flex: 0 0 32%; /* Takes up roughly a third of the screen */
-  min-width: 320px; /* Won't get too crushed on small screens */
-  max-width: 450px; /* Won't stretch too wide on ultrawides */
+  flex: 0 0 32%;
+  min-width: 300px;
+  max-width: 450px;
+  min-height: 0;   /* Safari: allow sidebar to shrink within the flex row */
   display: flex; flex-direction: column; gap: 11px;
   padding: 13px; overflow-y: auto;
   border-left: 1px solid var(--panel-border);
@@ -395,7 +421,9 @@ main {
 
 .panel {
   background: var(--panel); border: 1px solid var(--panel-border);
-  border-radius: 10px; padding: 13px 15px; backdrop-filter: blur(10px);
+  border-radius: 10px; padding: 13px 15px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 .panel h2 {
   font-family: var(--font-display); font-size: 11px; font-weight: 700;
@@ -552,15 +580,38 @@ main {
 }
 
 /* ═══════════════════════════════════════
-   BRIEF PANEL — top-left of globe area
+   GLOBE OVERLAY PANELS — stacked top-left
+   Both the Brief panel and Ask AI panel
+   live inside this positioned container.
 ═══════════════════════════════════════ */
-.brief-panel {
+.globe-panels {
   position: absolute;
   top: 16px;
   left: 16px;
   z-index: 50;
-  width: 300px;
+  display: flex;
+  flex-direction: row;      /* Brief and Chat side-by-side on wide screens */
+  align-items: flex-start;  /* each expands downward independently */
+  gap: 8px;
   max-width: calc(100% - 32px);
+  pointer-events: none;     /* clicks pass through gaps to the globe */
+}
+.globe-panels > * {
+  pointer-events: auto;
+}
+
+/* ── Brief panel ── */
+.brief-panel {
+  width: 260px;
+  flex-shrink: 0;
+}
+
+/* ── Stack vertically on Mac laptops and smaller ── */
+@media (max-width: 1200px) {
+  .globe-panels { flex-direction: column; }
+}
+@media (max-width: 720px) {
+  .brief-panel { width: 240px; }
 }
 
 .brief-toggle {
@@ -579,6 +630,7 @@ main {
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--accent);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   transition: background 0.2s, border-color 0.2s;
   text-align: left;
@@ -610,6 +662,7 @@ main {
   border: 1px solid var(--panel-border);
   border-top: none;
   border-radius: 0 0 10px 10px;
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   overflow: hidden;
   max-height: 0;
@@ -751,3 +804,208 @@ main {
   min-height: 14px;
   opacity: 0.8;
 }
+
+/* ═══════════════════════════════════════
+   CHAT PANEL — Ask About an Article
+═══════════════════════════════════════ */
+.chat-panel {
+  width: 260px;
+  flex-shrink: 0;
+}
+@media (max-width: 720px) {
+  .chat-panel { width: 240px; }
+}
+
+.chat-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 9px 13px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition: background 0.2s, border-color 0.2s;
+  text-align: left;
+}
+.chat-toggle:hover {
+  background: rgba(164, 124, 255, 0.08);
+  border-color: rgba(164, 124, 255, 0.3);
+}
+
+.chat-chevron {
+  margin-left: auto;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.chat-panel.open .chat-toggle {
+  border-radius: 8px 8px 0 0;
+  border-bottom-color: transparent;
+}
+.chat-panel.open .chat-chevron { transform: rotate(180deg); }
+
+/* Slide-down content — same mechanics as brief-content */
+.chat-content {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+.chat-panel.open .chat-content {
+  max-height: 440px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Header */
+.chat-header {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--panel-border);
+}
+.chat-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.chat-subtitle {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+/* Message history */
+.chat-messages {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.chat-messages::-webkit-scrollbar { width: 3px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: rgba(100,160,240,0.15); border-radius: 2px; }
+
+.chat-msg { display: flex; }
+.chat-msg-ai   { justify-content: flex-start; }
+.chat-msg-user { justify-content: flex-end; }
+
+.chat-bubble {
+  max-width: 88%;
+  padding: 8px 11px;
+  font-size: 12px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+.chat-msg-ai .chat-bubble {
+  background: rgba(77, 168, 255, 0.07);
+  border: 1px solid rgba(77, 168, 255, 0.15);
+  border-radius: 3px 10px 10px 10px;
+  color: var(--text);
+  font-family: var(--font-body);
+}
+.chat-msg-user .chat-bubble {
+  background: rgba(164, 124, 255, 0.2);
+  border: 1px solid rgba(164, 124, 255, 0.35);
+  border-radius: 10px 3px 10px 10px;
+  color: #fff;
+  font-family: var(--font-body);
+}
+.chat-msg-error .chat-bubble {
+  background: rgba(240, 80, 60, 0.1);
+  border-color: rgba(240, 80, 60, 0.25);
+  color: var(--bad);
+}
+
+/* Typing indicator */
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 2px;
+}
+.typing-dots span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  display: inline-block;
+  animation: typingBounce 1.2s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* Input row */
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px 11px;
+  border-top: 1px solid var(--panel-border);
+}
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text);
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.chat-input::placeholder { color: var(--text-dim); opacity: 0.55; }
+.chat-input:focus { border-color: rgba(164, 124, 255, 0.45); }
+.chat-input:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.chat-send {
+  flex-shrink: 0;
+  width: 33px; height: 33px;
+  background: linear-gradient(135deg, var(--accent-2) 0%, var(--accent) 100%);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #04060e;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  box-shadow: 0 2px 12px rgba(164, 124, 255, 0.3);
+}
+.chat-send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 18px rgba(164, 124, 255, 0.5);
+}
+.chat-send:active:not(:disabled) { transform: translateY(0); }
+.chat-send:disabled { opacity: 0.35; cursor: not-allowed; }

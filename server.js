@@ -23,6 +23,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const newsRoutes = require('./routes/news');
+const chatRoute  = require('./routes/chat');
 
 // Bail early if Node is too old — global fetch() lands in 18.
 const NODE_MAJOR = parseInt(process.versions.node.split('.')[0], 10);
@@ -46,6 +47,7 @@ app.use(cors());
 
 // ─── API routes ───────────────────────────────────────────────────
 app.use('/api/news', newsRoutes);
+app.use('/api/chat', chatRoute);
 
 app.get('/api/health', (_req, res) => {
   // Don't echo the actual key values — we just want to know which APIs

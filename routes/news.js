@@ -141,9 +141,10 @@ function selectBriefArticles(articles) {
 
   const scored = articles
     .map(a => {
-      // Use HF score when available; fall back to keyword lexicon so the
-      // brief always has real signal even without the HF_API_KEY configured.
-      const c = typeof a.cortisol === 'number' ? a.cortisol : lexiconCortisol(a.title);
+      // Always score with the keyword lexicon — never use the HF cortisol value
+      // here, because HF stamps every timed-out article with NEUTRAL_SCORE=0.5,
+      // which would make all brief scores identical regardless of content.
+      const c = lexiconCortisol(a.title);
       return { a, c, s: scoreArticle(a, c) };
     })
     .filter(x => x.s >= 0)
@@ -181,16 +182,16 @@ function selectBriefArticles(articles) {
   if (result.length < 5) result.push(...pick(scored, 7 - result.length));
 
   // Sort high → low so the brief reads most alarming first.
-  result.sort((a, b) => (b.cortisol || 0.5) - (a.cortisol || 0.5));
+  result.sort((a, b) => lexiconCortisol(b.title) - lexiconCortisol(a.title));
 
-  // Attach the cortisol score used for banding (lexicon or HF) so the
-  // frontend badge always shows a real value, never the 0.5 fallback.
+  // Stamp each article with its lexicon cortisol so the frontend badge
+  // always shows a real, varied score — never HF's 0.5 timeout fallback.
   return result.slice(0, 7).map(a => {
-    const c = typeof a.cortisol === 'number' ? a.cortisol : lexiconCortisol(a.title);
+    const c = lexiconCortisol(a.title);
     return {
       ...a,
       cortisol:      +c.toFixed(3),
-      cortisolColor: a.cortisolColor || cortisolToHex(c),
+      cortisolColor: cortisolToHex(c),
       summary:       makeSummary(a.title, a.description),
     };
   });
