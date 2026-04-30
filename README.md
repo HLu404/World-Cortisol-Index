@@ -8,5 +8,5 @@ A real-time global "stress map" — a 3D Earth where each country is colored by 
 - **Sentiment scoring** — every article is ran through a hugging face algorithm that determines the "cortisol" level and emotion of a headline. It rates it on a score of 0 (low cortisol) to 1 (high cortisol) and assigns a color green to red based on it.
 - **Country averages** — clicking a country shows its average cortisol; clicking a dot opens an article and lets you visit its webpage.
 - **Bar chart** — the sidebar shows the 20 highest cortisol countries.
-- **Rolling archive** — articles persist in `localStorage` so the map keeps content between visits.
+- **Rolling archive** — articles persist in a "localStorage" so the map keeps content between visits.
 
