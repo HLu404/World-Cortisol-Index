@@ -16,7 +16,10 @@ The world today is filled with disinformation, doomposting, and gloom. But how b
 - **Bar chart** — the sidebar shows the 20 highest cortisol countries.
 - **Rolling archive** — articles persist in a "localStorage" so the map keeps content between visits.
 - **Updates** - users can refresh articles to see whats new on the world today.
-- **The Cortisol in Brief** - users can explore daily articles of what's going on today, provided with brief summaries powered by AI.
+- **The Cortisol in Brief** - users can explore daily articles of what's going on today, provided with brief summaries powered by AI, and a chatbot to ask questions about articles read.
+
+<img width="1912" height="888" alt="image" src="https://github.com/user-attachments/assets/274e592e-4466-4bc1-b51b-8ba91547c718" />
+
 
 ## Technologies
 
