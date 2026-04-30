@@ -11,4 +11,5 @@ A real-time global "stress map" — a 3D Earth where each country is colored by 
 - **Country averages** — clicking a country shows its average cortisol; clicking a dot opens an article and lets you visit its webpage.
 - **Bar chart** — the sidebar shows the 20 highest cortisol countries.
 - **Rolling archive** — articles persist in a "localStorage" so the map keeps content between visits.
+- **Updates** - users can refresh articles to see whats new on the world today.
 
