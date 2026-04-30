@@ -201,6 +201,7 @@ let countryTopCities  = null;
 let sessionNewCount   = 0;
 let globeInitialized  = false;
 let hoveredCountry    = null;
+let briefArticles     = [];
 
 // ─────────────────────────────────────────
 // UTILITIES
@@ -559,11 +560,12 @@ async function fetchAllApis() {
 
   setProgress(65);
   window.__lastPerApiCounts = data.perApi || null;
+  briefArticles = data.brief || [];
   if (data.perApi) {
     console.log('[backend] per-API counts:', data.perApi);
     updateApiBadges(data.perApi);
   }
-  console.log(`[backend] ${data.count} unique articles`);
+  console.log(`[backend] ${data.count} unique articles, ${briefArticles.length} brief`);
   return data.articles || [];
 }
 
@@ -581,6 +583,60 @@ function updateApiBadges(perApi) {
       badge.title = `${cls.toUpperCase()}: ${got} articles`;
     }
   }
+}
+
+function animateBriefSummaries() {
+  const items = document.querySelectorAll('#brief-list .brief-summary[data-text]');
+  items.forEach((el, idx) => {
+    const text = el.dataset.text || '';
+    el.textContent = '';
+    setTimeout(() => {
+      let i = 0;
+      const id = setInterval(() => {
+        if (i < text.length) {
+          el.textContent = text.slice(0, ++i) + '▋';
+        } else {
+          el.textContent = text;
+          clearInterval(id);
+        }
+      }, 10);
+    }, idx * 160);
+  });
+}
+
+function renderBriefPanel(articles) {
+  const $list = document.getElementById('brief-list');
+  if (!$list) return;
+  if (!articles || articles.length === 0) {
+    $list.innerHTML = '<li class="brief-placeholder">No high-signal global stories yet — try refreshing.</li>';
+    return;
+  }
+  $list.innerHTML = articles.map((a, i) => {
+    const c       = typeof a.cortisol === 'number' ? a.cortisol : 0.5;
+    const col     = cortisolColor(c, 0.9);
+    const where   = escapeHtml(a.sourcecountry || '');
+    const title   = escapeHtml(a.title || 'Untitled');
+    const url     = escapeHtml(a.url || '#');
+    const summary = escapeHtml(a.summary || '');
+    return `<li>
+      <a class="brief-item" href="${url}" target="_blank" rel="noopener noreferrer">
+        <span class="brief-rank">${i + 1}.</span>
+        <div class="brief-body">
+          <div class="brief-headline">${title}</div>
+          <div class="brief-meta">
+            ${where ? `<span class="brief-where">📍 ${where}</span>` : ''}
+            <span class="brief-score-badge" style="background:${col}">cortisol ${c.toFixed(2)}</span>
+          </div>
+          ${summary ? `<div class="brief-summary" data-text="${summary}"></div>` : ''}
+        </div>
+      </a>
+    </li>`;
+  }).join('');
+
+  // If the panel is already open (e.g. refresh fired while panel was expanded),
+  // kick off the typewriter immediately.
+  const panel = document.getElementById('brief-panel');
+  if (panel && panel.classList.contains('open')) animateBriefSummaries();
 }
 
 // ─────────────────────────────────────────
@@ -1112,6 +1168,7 @@ async function refresh() {
     news = buildNewsPayload(merged.length > 0 ? merged : DEMO_ARTICLES);
     if (globeInitialized) updateGlobeData();
     initChart();
+    renderBriefPanel(briefArticles);
     const countryCount = Object.keys(news.countries).length;
     updateArchivePanel(merged.length, sessionNewCount, countryCount, firstFetch);
     $status.textContent = `${news.locations.length} LOCATIONS · ${countryCount} COUNTRIES · +${added} NEW`;
@@ -1288,6 +1345,7 @@ async function loadAll() {
 
   $loaderText.textContent = 'Analyzing sentiment…';
   news = geoOk ? buildNewsPayload(merged) : buildNewsPayload(allArticles);
+  renderBriefPanel(briefArticles);
   setProgress(92);
 
   const nLoc     = news.locations.length;
@@ -1396,6 +1454,18 @@ function initHomepage() {
 // MAIN ENTRY
 // ─────────────────────────────────────────
 $refresh.addEventListener('click', refresh);
+
+// Brief panel toggle
+(function () {
+  const panel  = document.getElementById('brief-panel');
+  const toggle = document.getElementById('brief-toggle');
+  if (!panel || !toggle) return;
+  toggle.addEventListener('click', () => {
+    const isOpen = panel.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) animateBriefSummaries();
+  });
+})();
 
 initHomepage();
 

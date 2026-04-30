@@ -13,9 +13,10 @@ async function fetchMediastackNews(query = 'world') {
             const u = (article.url || '').trim();
             return {
                 title: article.title || '',
+                description: (article.description || '').slice(0, 250),
                 url: u,
                 domain: extractDomain(u) || article.source,
-                sourcecountry: '', 
+                sourcecountry: '',
                 seendate: article.published_at || '',
                 _api: 'mediastack'
             };

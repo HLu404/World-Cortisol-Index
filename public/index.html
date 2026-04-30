@@ -100,6 +100,30 @@
 
   <main>
     <div id="globe-wrap">
+      <!-- ── Cortisol Levels in Brief ── -->
+      <div id="brief-panel" class="brief-panel">
+        <button id="brief-toggle" class="brief-toggle" aria-expanded="false">
+          <svg width="13" height="11" viewBox="0 0 13 11" fill="none" aria-hidden="true">
+            <rect y="0"   width="13"  height="1.8" rx=".9" fill="currentColor"/>
+            <rect y="4.1" width="9.5" height="1.8" rx=".9" fill="currentColor"/>
+            <rect y="8.2" width="11"  height="1.8" rx=".9" fill="currentColor"/>
+          </svg>
+          <span>BRIEF</span>
+          <svg class="brief-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+            <path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div id="brief-content" class="brief-content">
+          <div class="brief-header">
+            <span class="brief-title">Cortisol Levels in Brief</span>
+            <span class="brief-subtitle">5–7 top global stories · ranked by signal</span>
+          </div>
+          <ol id="brief-list" class="brief-list">
+            <li class="brief-placeholder">Loading top global stories…</li>
+          </ol>
+        </div>
+      </div>
+
       <div id="loading-overlay">
         <div class="loader-ring"></div>
         <div class="loader-text" id="loader-text">Initializing…</div>

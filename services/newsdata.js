@@ -37,6 +37,7 @@ async function fetchNewsdata() {
       const sc = (Array.isArray(a.country) && a.country[0]) || '';
       merged.push({
         title: a.title || '',
+        description: (a.description || '').slice(0, 250),
         url: u,
         domain: a.source_id || extractDomain(u),
         sourcecountry: sc,

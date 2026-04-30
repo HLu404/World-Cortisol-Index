@@ -41,6 +41,7 @@ async function fetchGnews() {
       if (!u) continue;
       merged.push({
         title: a.title || a.description || '',
+        description: (a.description || '').slice(0, 250),
         url: u,
         domain: extractDomain(u),
         sourcecountry: '',

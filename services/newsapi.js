@@ -42,6 +42,7 @@ async function fetchNewsapi() {
       if (!u || u.includes('removed') || u === 'https://removed.com') continue;
       merged.push({
         title: a.title || '',
+        description: (a.description || '').slice(0, 250),
         url: u,
         domain: extractDomain(u),
         sourcecountry: '',
