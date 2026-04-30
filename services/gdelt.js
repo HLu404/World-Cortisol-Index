@@ -1,10 +1,5 @@
 /**
  * GDELT — free, no API key required.
- *
- * Multiple thematic queries are issued in parallel; results are merged and
- * de-duplicated. Running on the server means we don't need a CORS proxy any
- * more (the original frontend cascaded through 4 public proxies because
- * gdelt's CORS is hit-or-miss from browsers).
  */
 
 const { fetchWithTimeout, extractDomain, dedupeByUrl } = require('./_helpers');
@@ -22,20 +17,12 @@ const GDELT_QUERIES = [
   '(domain:japantimes.co.jp OR domain:koreaherald.com OR domain:chinadailyhk.com OR domain:khaleejtimes.com OR domain:manilatimes.net OR domain:bangkokpost.com OR domain:voanews.com OR domain:rferl.org) sourcelang:eng',
 ];
 
-/**
- * Run all GDELT queries in parallel and return a deduped, normalized list.
- * Individual failures are logged but never thrown — partial results are
- * always preferred over total failure.
- */
 async function fetchGdelt() {
   const results = await Promise.allSettled(
     GDELT_QUERIES.map(async (q) => {
-      const url =
-        `${GDELT_BASE}?query=${encodeURIComponent(q)}` +
-        `&mode=ArtList&format=json&maxrecords=250&timespan=1d&sort=datedesc`;
+      const url = `${GDELT_BASE}?query=${encodeURIComponent(q)}&mode=ArtList&format=json&maxrecords=250&timespan=1d&sort=datedesc`;
       const r = await fetchWithTimeout(url);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      // GDELT occasionally serves text/plain even for JSON, so parse manually.
       const text = await r.text();
       try {
         return JSON.parse(text);
@@ -47,10 +34,7 @@ async function fetchGdelt() {
 
   const merged = [];
   for (const r of results) {
-    if (r.status !== 'fulfilled') {
-      console.warn('[GDELT] query failed:', r.reason?.message);
-      continue;
-    }
+    if (r.status !== 'fulfilled') continue; // Silently skip failed queries
     for (const a of r.value.articles || []) {
       const u = (a.url || '').trim();
       if (!u) continue;
@@ -66,7 +50,7 @@ async function fetchGdelt() {
   }
 
   const deduped = dedupeByUrl(merged);
-  console.log(`[GDELT] ${deduped.length} articles`);
+  console.log(`[GDELT] articles retrieved: ${deduped.length}`);
   return deduped;
 }
 

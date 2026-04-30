@@ -62,11 +62,10 @@ const CITIES_URL     = `${NATURAL_EARTH}/ne_50m_populated_places_simple.geojson`
 // detail vs. download size — ne_10m would more than double the payload.
 const STATES_URL     = `${NATURAL_EARTH}/ne_50m_admin_1_states_provinces.geojson`;
 
-
 // ── LocalStorage ──
 const STORE_KEY   = 'wci_v2_store';
-const MAX_AGE_MS  = 7 * 24 * 3600 * 1000; // 7 days
-const MAX_STORED  = 8000;
+const MAX_AGE_MS  = 30 * 24 * 3600 * 1000; // 30 days
+const MAX_STORED  = 30000;
 
 // ─────────────────────────────────────────
 // SENTIMENT LEXICONS
@@ -228,14 +227,12 @@ function cortisolColor(c, alpha=1) {
   const light = 50 - Math.abs(0.5 - x) * 5;
   return `hsla(${hue.toFixed(1)}, ${sat.toFixed(0)}%, ${light.toFixed(0)}%, ${alpha})`;
 }
-// Deterministic earthy-green for a polygon — same country always gets the
-// same shade so the map is stable across re-renders. Hue stays in the
-// green/olive range; saturation/lightness vary to give visual texture.
+// Deterministic earthy-green for a polygon
 function landColor(seedStr, alpha=1) {
   const h = hashStr(seedStr || '');
-  const hue   = 78 + (h % 42);            // 78–120: olive → forest
-  const sat   = 22 + ((h >> 7)  % 18);    // 22–40%
-  const light = 24 + ((h >> 13) % 12);    // 24–36%
+  const hue   = 78 + (h % 42);
+  const sat   = 22 + ((h >> 7)  % 18);
+  const light = 24 + ((h >> 13) % 12);
   return `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
 }
 function hashStr(s) {
@@ -264,11 +261,6 @@ async function fetchWithTimeout(url, ms=14000) {
   } catch(e) { clearTimeout(tid); throw e; }
 }
 
-/**
- * Fetch JSON straight from the URL. Used for static geo data on raw
- * GitHub which already serves proper CORS headers — no proxy cascade
- * is needed any more.
- */
 async function fetchJsonAny(url) {
   const r = await fetchWithTimeout(url, 12000);
   if (!r.ok) throw new Error(`HTTP ${r.status} fetching ${url}`);
@@ -329,7 +321,6 @@ function mergeIntoStore(newArticles) {
     store.articles.push({ ...a, fetchedAt: Date.now() });
     added++;
   }
-  // Trim to max
   if (store.articles.length > MAX_STORED) {
     store.articles.sort((a,b) => b.fetchedAt - a.fetchedAt);
     store.articles = store.articles.slice(0, MAX_STORED);
@@ -338,7 +329,6 @@ function mergeIntoStore(newArticles) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({ articles: store.articles, firstFetch: store.firstFetch }));
   } catch(e) {
-    // Trim more aggressively if storage full
     store.articles = store.articles.slice(0, 3000);
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {}
   }
@@ -350,7 +340,6 @@ function updateArchivePanel(total, session, countryCount, firstFetch) {
   $arcSession.textContent  = `+${fmtNum(session)}`;
   $arcCountries.textContent= countryCount;
   $arcSince.textContent    = fmtDate(firstFetch);
-  // Homepage stats
   const hpTotal    = document.getElementById('hp-total');
   const hpCountries= document.getElementById('hp-countries');
   const hpSince    = document.getElementById('hp-since');
@@ -440,7 +429,6 @@ function bbox(geom) {
   return [minx, miny, maxx, maxy];
 }
 
-// Standard ray-casting test for a single linear ring (lon/lat pair array).
 function pointInRing(lon, lat, ring) {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -453,9 +441,6 @@ function pointInRing(lon, lat, ring) {
   return inside;
 }
 
-// Test against a Polygon / MultiPolygon geometry (with hole support).
-// `cachedBbox`, if provided, lets callers skip the test for points clearly
-// outside the geometry's extent — important for big countries (Russia, Canada).
 function pointInGeom(lon, lat, geom, cachedBbox) {
   if (!geom) return false;
   if (cachedBbox) {
@@ -478,7 +463,6 @@ function pointInGeom(lon, lat, geom, cachedBbox) {
   return false;
 }
 
-// Cache: ISO code -> country GeoJSON feature, built lazily.
 let countryFeatureByIso = null;
 function getCountryFeature(iso) {
   if (!iso || !countriesGeo) return null;
@@ -534,7 +518,6 @@ function geocodeArticle(title, sourcecountry, url) {
   }
   if (sourcecountry) {
     const sc = sourcecountry.trim().toLowerCase();
-    // Try alias lookup first
     const aliasIso = COUNTRY_ALIASES[sc];
     let rec = null;
     if (aliasIso && countryCentroids.byIso[aliasIso]) {
@@ -559,13 +542,6 @@ function geocodeArticle(title, sourcecountry, url) {
 // ─────────────────────────────────────────
 // NEWS API — talks to our backend
 // ─────────────────────────────────────────
-// The backend at /api/news/all calls GDELT, GNews, NewsData, and NewsAPI
-// server-side, dedupes by URL, and returns the merged list. API keys live
-// in the server's .env file — they never reach the browser.
-//
-// Per-API article counts are returned in `perApi` and exposed on
-// window.__lastPerApiCounts so the UI can grey out badges for APIs that
-// returned nothing (typically because their keys aren't configured).
 async function fetchAllApis() {
   setProgress(10);
   $loaderText.textContent = 'Fetching live news from backend…';
@@ -591,10 +567,6 @@ async function fetchAllApis() {
   return data.articles || [];
 }
 
-/**
- * Grey out the API badges in the sidebar for any API that returned zero
- * articles. Usually means that API's key is unset or quota is exhausted.
- */
 function updateApiBadges(perApi) {
   const $badges = document.getElementById('api-badges');
   if (!$badges) return;
@@ -674,7 +646,6 @@ function buildNewsPayload(articles) {
 function initGlobe() {
   const el = document.getElementById('globe');
 
-  // Procedural ocean texture — darker, deeper blues
   const oc = document.createElement('canvas');
   oc.width = 512; oc.height = 256;
   const octx = oc.getContext('2d');
@@ -697,11 +668,8 @@ function initGlobe() {
     .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
     .atmosphereColor('rgba(40, 110, 220, 0.5)')
     .atmosphereAltitude(0.22)
-    .showGraticules(false);    // we draw our own grid below for fine-grained control
+    .showGraticules(false);
 
-  // Retint the graticule lines that globe.gl auto-creates. We tag every line
-  // we touch so admin-1 borders (added later via pathsData) keep their own
-  // color even if a future call traverses again.
   function retintGraticules() {
     if (!globe.scene()) return;
     globe.scene().traverse(obj => {
@@ -714,14 +682,9 @@ function initGlobe() {
       }
     });
   }
-  // Graticules render asynchronously after construction. Tint them BEFORE we
-  // add admin-1 borders so the traversal doesn't catch border lines too.
   setTimeout(retintGraticules, 150);
-  // Add countries / paths / dots a moment later so any new lines appear after
-  // the tag-and-skip pass above.
   setTimeout(() => {
     updateGlobeData();
-    // One more tint pass in case graticules were still loading.
     retintGraticules();
   }, 350);
 
@@ -746,9 +709,6 @@ function updateGlobeData() {
       .polygonCapColor(d => {
         if (d === hoveredCountry) {
           const c = news.countries[isoOf(d)];
-          // Hovered country: tint by its average cortisol if we have data,
-          // otherwise just brighten the land slightly so the user gets
-          // visual feedback even on countries with no news yet.
           if (c) return cortisolColor(c.cortisol, 0.92);
           return 'rgba(180, 200, 170, 0.65)';
         }
@@ -779,9 +739,6 @@ function updateGlobeData() {
         document.getElementById('globe').style.cursor = d ? 'pointer' : 'default';
         if (d === hoveredCountry) return;
         hoveredCountry = d;
-        // Re-trigger globe.gl's color/altitude accessors so the new hover
-        // state takes effect. Reassigning the same accessor invalidates the
-        // internal cache and forces a re-evaluation.
         globe
           .polygonAltitude(globe.polygonAltitude())
           .polygonCapColor(globe.polygonCapColor())
@@ -789,12 +746,6 @@ function updateGlobeData() {
       });
   }
 
-  // ── Admin-1 borders + hemisphere lines ──
-  // Drawn as paths so they sit cleanly on the globe surface without
-  // introducing thousands of polygons that would tank polygon hover/click.
-  // We combine borders and hemisphere lines into one pathsData call (globe.gl
-  // only supports a single paths layer) and tag each with a `kind` so the
-  // color/stroke accessors can style them differently.
   const allPaths = [];
 
   if (statesGeo && statesGeo.features) {
@@ -815,11 +766,7 @@ function updateGlobeData() {
     }
   }
 
-  // Lat/lon grid: parallels every 15° (excluding poles) and meridians every
-  // 15°. Each gridline is sampled at 1° resolution so it bends smoothly
-  // around the sphere. The equator and prime meridian get a slightly
-  // brighter color to anchor the viewer.
-  const GRID_STEP = 15;  // degrees between gridlines
+  const GRID_STEP = 15;
   for (let lat = -75; lat <= 75; lat += GRID_STEP) {
     const pts = [];
     for (let lon = -180; lon <= 180; lon += 1) pts.push([lat, lon]);
@@ -835,7 +782,7 @@ function updateGlobeData() {
     const pathColors = {
       border:   'rgba(15, 45, 25, 0.7)',
       grid:     'rgba(120, 160, 200, 0.18)',
-      gridMain: 'rgba(160, 190, 220, 0.32)',  // equator + prime meridian
+      gridMain: 'rgba(160, 190, 220, 0.32)',
     };
     const pathStrokes = {
       border:   0.5,
@@ -847,7 +794,10 @@ function updateGlobeData() {
       .pathPoints(d => d.pts)
       .pathPointLat(p => p[0])
       .pathPointLng(p => p[1])
-      .pathPointAlt(d => d.kind === 'border' ? 0.0085 : 0.013)
+      // -------------------------------------------------------------
+      // 3D FIX: Borders raised to 0.0145 to sit above hovered country
+      // -------------------------------------------------------------
+      .pathPointAlt(d => d.kind === 'border' ? 0.0145 : 0.0142)
       .pathColor(d => pathColors[d.kind] || 'rgba(15, 45, 25, 0.7)')
       .pathStroke(d => pathStrokes[d.kind] || 0.5)
       .pathDashLength(1)
@@ -855,65 +805,49 @@ function updateGlobeData() {
       .pathTransitionDuration(0);
   }
 
-  // ── Per-article scatter dots ──
-  // Each article is its own dot, placed on a Fibonacci-style spiral around
-  // its location's centroid AND clipped to the country's land polygon.
-  // For each location we run an adaptive search: try a comfortable spiral
-  // step first, and if too few positions land inside the country, shrink the
-  // step (and the dot radius) and retry. This guarantees no overlaps AND
-  // keeps every dot on land.
-  const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ~137.5°
+  const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); 
 
-  // Try to place n dots on a spiral around (lat0, lon0), keeping every point
-  // inside `feature`. Returns { positions, dotRadius } where dotRadius is the
-  // visual radius (in globe.gl units, ~degrees of arc) the caller should use.
   function packInsideFeature(lat0, lon0, n, feature) {
     if (n <= 0) return { positions: [], dotRadius: 0.55 };
     const cosLat = Math.max(0.15, Math.cos(lat0 * Math.PI / 180));
     const geom = feature ? feature.geometry : null;
     const featBbox = geom ? bbox(geom) : null;
 
-    // Step sizes to try, in degrees. Each comes paired with a matching dot
-    // visual radius so dots scale with the packing density.
-    // [stepDeg, dotRadius]
     const tiers = [
-      [1.95, 0.65],
-      [1.45, 0.50],
-      [1.05, 0.38],
-      [0.75, 0.28],
-      [0.55, 0.22],
-      [0.40, 0.18],
-      [0.28, 0.14],
+      [1.95, 0.65], [1.45, 0.50], [1.05, 0.38],
+      [0.75, 0.28], [0.55, 0.22], [0.40, 0.18], [0.28, 0.14],
     ];
-    // Generous oversample budget: bigger n → more candidates to try.
     const budget = Math.max(80, n * 10);
 
     for (const [stepDeg, dotRadius] of tiers) {
       const positions = [];
-      // i is spiral index; we keep advancing until we either fill n dots
-      // or run out of budget.
       for (let i = 0; positions.length < n && i < budget; i++) {
         const r = stepDeg * Math.sqrt(i);
         const theta = i * GOLDEN_ANGLE;
         const lat = lat0 + r * Math.sin(theta);
         const lon = lon0 + (r * Math.cos(theta)) / cosLat;
-        // First dot at i=0 sits on centroid; if the centroid itself is in
-        // the ocean (e.g. an archipelago label point), skip and continue.
         if (geom && !pointInGeom(lon, lat, geom, featBbox)) continue;
         positions.push([lat, lon]);
       }
       if (positions.length === n) return { positions, dotRadius };
     }
-    // Fallback: tiniest tier, accept whatever fits and tile remainder back
-    // around centroid (will visually overlap, but very rare).
+    
     const [stepDeg, dotRadius] = tiers[tiers.length - 1];
     const positions = [];
     for (let i = 0; positions.length < n; i++) {
-      if (i > n * 30) { positions.push([lat0, lon0]); continue; }
+      if (i > n * 30) { 
+        positions.push([
+          lat0 + (Math.random() - 0.5) * 0.3, 
+          lon0 + (Math.random() - 0.5) * 0.3
+        ]); 
+        continue; 
+      }
+      
       const r = stepDeg * Math.sqrt(i);
       const theta = i * GOLDEN_ANGLE;
       const lat = lat0 + r * Math.sin(theta);
       const lon = lon0 + (r * Math.cos(theta)) / cosLat;
+      
       if (geom && !pointInGeom(lon, lat, geom, featBbox)) continue;
       positions.push([lat, lon]);
     }
@@ -932,14 +866,18 @@ function updateGlobeData() {
         cortisol: loc.articles[i].cortisol,
         article: loc.articles[i],
         radius: dotRadius,
-        loc, // back-reference for click
+        loc,
       });
     }
   }
+  
   globe
     .pointsData(dots)
     .pointLat('lat').pointLng('lon')
-    .pointAltitude(0.011)             // sits just above the land polygon (0.008)
+    // -------------------------------------------------------------
+    // 3D FIX: Dots raised to 0.016 to sit above the borders
+    // -------------------------------------------------------------
+    .pointAltitude(() => 0.016 + (Math.random() * 0.002)) 
     .pointRadius(d => d.radius)
     .pointColor(d => cortisolColor(d.cortisol, 0.95))
     .pointResolution(8)
@@ -957,8 +895,6 @@ function updateGlobeData() {
 // ─────────────────────────────────────────
 function cortisolMeterSVG(cortisol) {
   const c = Math.max(0, Math.min(1, cortisol));
-  // Six wedges spanning a semicircle from 180° (left) → 0° (right).
-  // Each wedge has its own fill that matches the standard low→high palette.
   const segs = [
     { c: '#3aa84a' }, { c: '#9bcc36' }, { c: '#e8d736' },
     { c: '#f0a836' }, { c: '#ef6b3b' }, { c: '#e63838' },
@@ -977,16 +913,13 @@ function cortisolMeterSVG(cortisol) {
     const [x1i, y1i] = polar(rInner, a1);
     return `<path d="M ${x0o} ${y0o} A ${rOuter} ${rOuter} 0 0 1 ${x1o} ${y1o} L ${x1i} ${y1i} A ${rInner} ${rInner} 0 0 0 ${x0i} ${y0i} Z" fill="${s.c}" stroke="#fff" stroke-width="2"/>`;
   }).join('');
-  // Needle: angle 0° at c=0 (LOW, left side), 180° at c=1 (HIGH, right side).
-  // The wedges run left→right with the green low-cortisol wedge at deg 0 and
-  // the red high-cortisol wedge at deg 180, so the needle angle = 180 * c.
   const ang = 180 * c;
   const [nx, ny] = polar(rOuter - 8, ang);
   return `
   <svg class="meter-svg" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg">
     ${wedges}
     <text x="14"  y="118" class="meter-lbl meter-lbl-low">LOW</text>
-    <text x="110" y="14"  class="meter-lbl meter-lbl-mid" text-anchor="middle">MEDIUM</text>
+    <text x="110" y="7"  class="meter-lbl meter-lbl-mid" text-anchor="middle">MEDIUM</text>
     <text x="206" y="118" class="meter-lbl meter-lbl-high" text-anchor="end">HIGH</text>
     <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#0e2348" stroke-width="4" stroke-linecap="round"/>
     <circle cx="${cx}" cy="${cy}" r="9" fill="#1a3566"/>
@@ -1245,7 +1178,6 @@ async function loadAll() {
   $status.textContent = 'LOADING GEO DATA…';
   setProgress(0);
 
-  // ── Geo data: try multiple sources, never hard-fail ──
   let geoOk = false;
   try {
     $loaderText.textContent = 'Fetching country shapes…';
@@ -1258,11 +1190,9 @@ async function loadAll() {
     geoOk = true;
   } catch(e) {
     console.error('Geo data failed:', e);
-    // Try alternative CDN sources
     try {
       $loaderText.textContent = 'Trying alternate geo source…';
       const alt = 'https://cdn.jsdelivr.net/npm/world-atlas@2';
-      // Attempt to use unpkg alternative for the same files
       const [countriesResp, citiesResp] = await Promise.all([
         fetchJsonAny(`https://unpkg.com/natural-earth-data@1.1.0/ne_110m_admin_0_countries.geojson`),
         fetchJsonAny(`https://unpkg.com/natural-earth-data@1.1.0/ne_50m_populated_places_simple.geojson`),
@@ -1278,7 +1208,6 @@ async function loadAll() {
   }
   setProgress(15);
 
-  // ── States/provinces (non-blocking — render works without them) ──
   if (geoOk) {
     try {
       $loaderText.textContent = 'Fetching state & province borders…';
@@ -1297,12 +1226,10 @@ async function loadAll() {
   }
   setProgress(20);
 
-  // ── Stored articles ──
   const { articles: stored, firstFetch } = loadStore();
   $loaderText.textContent = `Loaded ${fmtNum(stored.length)} archived articles…`;
   setProgress(25);
 
-  // ── Live news from all APIs ──
   $loaderText.textContent = 'Fetching live news from 4 APIs…';
   let fresh = [];
   try {
@@ -1312,7 +1239,6 @@ async function loadAll() {
   }
   setProgress(70);
 
-  // If absolutely nothing came back, use demo data
   const combined = [...stored, ...fresh];
   const allArticles = combined.length > 0 ? combined : DEMO_ARTICLES;
   if (combined.length === 0) {
@@ -1394,7 +1320,6 @@ let stopHpCanvas;
 function initHomepage() {
   stopHpCanvas = initHpCanvas();
 
-  // Pre-load the stored stats for display
   const { articles: stored, firstFetch } = loadStore();
   const hpTotal    = document.getElementById('hp-total');
   const hpSince    = document.getElementById('hp-since');
@@ -1421,7 +1346,6 @@ function initHomepage() {
     app.classList.remove('visible');
     setTimeout(() => { app.classList.add('app-hidden'); }, 700);
     stopHpCanvas = initHpCanvas();
-    // Refresh homepage stats
     const { articles, firstFetch: fp } = loadStore();
     const hpT = document.getElementById('hp-total');
     const hpS = document.getElementById('hp-since');
@@ -1439,7 +1363,6 @@ $refresh.addEventListener('click', refresh);
 
 initHomepage();
 
-// Kick off data loading in background
 (async function main() {
   try {
     await ensureLibs();
@@ -1451,12 +1374,10 @@ initHomepage();
   try {
     await loadAll();
   } catch(e) {
-    // Even if loadAll throws for some reason, try to show demo data
     console.error('loadAll failed:', e);
     $status.textContent = `NETWORK ERROR — DEMO MODE`;
     $loaderText.textContent = 'Using built-in demo dataset…';
     if (!countriesGeo || !citiesGeo) {
-      // Can't render globe without geo data — show a user-friendly message
       $loaderText.textContent = 'Cannot load map data. Check your internet connection and reload.';
       $status.textContent = 'OFFLINE — RELOAD TO RETRY';
       return;

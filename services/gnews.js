@@ -1,12 +1,5 @@
 /**
  * GNews — https://gnews.io
- *
- * Free tier: 100 requests/day. We issue ~10 thematic queries per refresh,
- * so users will exhaust the quota fast — backend caching (see routes/news.js)
- * is essential.
- *
- * The API key is read from process.env.GNEWS_KEY and is NEVER sent to the
- * client (in the original single-file build it was hardcoded in the JS).
  */
 
 const { fetchWithTimeout, extractDomain, dedupeByUrl } = require('./_helpers');
@@ -37,9 +30,7 @@ async function fetchGnews() {
 
   const queries = buildQueries(key);
   const results = await Promise.allSettled(
-    queries.map((u) =>
-      fetchWithTimeout(u).then((r) => (r.ok ? r.json() : null))
-    )
+    queries.map((u) => fetchWithTimeout(u).then((r) => (r.ok ? r.json() : null)))
   );
 
   const merged = [];
@@ -60,7 +51,7 @@ async function fetchGnews() {
   }
 
   const deduped = dedupeByUrl(merged);
-  console.log(`[GNews] ${deduped.length} articles`);
+  console.log(`[GNews] articles retrieved: ${deduped.length}`);
   return deduped;
 }
 

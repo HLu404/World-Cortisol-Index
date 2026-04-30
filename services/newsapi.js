@@ -1,14 +1,5 @@
 /**
  * NewsAPI.org — https://newsapi.org
- *
- * Free tier: 100 requests/day, developer plan only allows server-side
- * requests (which is exactly what we are). The original frontend had to
- * pipe everything through CORS proxies because NewsAPI blocks browser
- * requests on the dev plan; running server-side means we can call it
- * directly with no proxy gymnastics.
- *
- * Articles flagged as `removed.com` (NewsAPI's tombstone for de-listed
- * stories) are filtered out.
  */
 
 const { fetchWithTimeout, extractDomain, dedupeByUrl } = require('./_helpers');
@@ -39,12 +30,8 @@ async function fetchNewsapi() {
   }
 
   const queries = buildQueries(key);
-  // NewsAPI's "general" category sometimes ignores `category=politics` — that's
-  // fine, the duplicate-URL filter below cleans up overlap.
   const results = await Promise.allSettled(
-    queries.map((u) =>
-      fetchWithTimeout(u).then((r) => (r.ok ? r.json() : null))
-    )
+    queries.map((u) => fetchWithTimeout(u).then((r) => (r.ok ? r.json() : null)))
   );
 
   const merged = [];
@@ -65,7 +52,7 @@ async function fetchNewsapi() {
   }
 
   const deduped = dedupeByUrl(merged);
-  console.log(`[NewsAPI] ${deduped.length} articles`);
+  console.log(`[NewsAPI] articles retrieved: ${deduped.length}`);
   return deduped;
 }
 
