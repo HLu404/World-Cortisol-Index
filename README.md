@@ -23,7 +23,7 @@ The world today is filled with disinformation, doomposting, and gloom. But how b
 
 ## Technologies
 
-**Backend:** Node.js, JavaScript, Axios, Native Fetch, Dotenv, Hugging Face 
+**Backend:** Node.js, JavaScript, Axios, Native Fetch API, Dotenv, Hugging Face 
 
 **External APIs:** GDELT Project , NewsAPI, GNews, NewsData.io, The Guardian API, Mediastack
 
