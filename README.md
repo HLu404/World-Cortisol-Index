@@ -28,5 +28,4 @@ The world today is filled with disinformation, doomposting, and gloom. But how b
 
 ## Team
 
-Harry Lu
-Andy Li
+Harry Lu, Andy Li
