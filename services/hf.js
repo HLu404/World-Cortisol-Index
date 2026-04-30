@@ -177,19 +177,28 @@ async function processBatch(batch) {
 
   try {
     const results = await callHF(titles);
+    hfConsecutiveFailures = 0; // reset on success
     for (let j = 0; j < batch.length; j++) {
       const labelScores = results[j];
       if (Array.isArray(labelScores) && labelScores.length) {
         cacheSet(batch[j].cacheKey, emotionsToCortisol(labelScores));
       }
-      // If HF returned fewer rows than titles, the entry stays absent from
-      // cache and gets NEUTRAL_SCORE at read time below.
     }
   } catch (e) {
+    hfConsecutiveFailures++;
+    // 404 means HF is blocking this server's IP (common on cloud deployments).
+    // Trip the circuit breaker so we stop spamming the logs.
+    if (e.message.includes('404') || e.message.includes('Cannot POST')) {
+      hfDisabled = true;
+      console.warn('[HF] 404 from inference API — likely datacenter IP block. Disabling HF scoring for this session; lexicon fallback will be used instead.');
+      return;
+    }
+    if (hfConsecutiveFailures >= HF_FAILURE_THRESHOLD) {
+      hfDisabled = true;
+      console.warn(`[HF] ${hfConsecutiveFailures} consecutive failures — disabling for this session.`);
+      return;
+    }
     console.warn(`[HF] batch (${titles.length} titles) failed: ${e.message}`);
-    // Intentionally do NOT cacheSet here: the absence from cache means the
-    // next request will retry these titles rather than permanently returning
-    // neutral for them.
   }
 }
 
@@ -207,9 +216,16 @@ async function processBatch(batch) {
  * - If HF_API_KEY is absent, every article gets NEUTRAL_SCORE so the
  *   rest of the pipeline degrades gracefully to the lexicon fallback.
  */
+// Circuit breaker: if HF returns consistent 404s (datacenter IP blocked),
+// stop calling it for the rest of the process lifetime to avoid log spam.
+let hfDisabled = false;
+let hfConsecutiveFailures = 0;
+const HF_FAILURE_THRESHOLD = 3;
+
 async function analyzeArticles(articles) {
   if (!articles.length) return articles;
   if (!process.env.HF_API_KEY) return articles;
+  if (hfDisabled) return articles;
 
   // Find articles whose titles aren't in the score cache yet
   const uncached = [];
