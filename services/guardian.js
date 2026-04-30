@@ -1,34 +1,50 @@
 const { fetchWithTimeout, extractDomain, dedupeByUrl } = require('./_helpers');
 
-async function fetchGuardianNews(query = 'world') {
-    try {
-        const url = `https://content.guardianapis.com/search?q=${encodeURIComponent(query)}&api-key=${process.env.GUARDIAN_API_KEY}`;
-        const response = await fetchWithTimeout(url);
-        
-        if (!response.ok) throw new Error("API Request Failed");
+const GUARDIAN_QUERIES = [
+  'world news',
+  'politics government election',
+  'conflict war military',
+  'environment climate disaster',
+  'economy trade finance',
+  'health medicine pandemic',
+];
 
-        const data = await response.json();
-        
-        const articles = (data.response?.results || []).map(article => {
-            const u = (article.webUrl || '').trim();
-            return {
-                title: article.webTitle || '',
-                url: u,
-                domain: extractDomain(u) || 'theguardian.com',
-                sourcecountry: 'uk', 
-                seendate: article.webPublicationDate || '',
-                _api: 'guardian'
-            };
-        });
-        
-        const deduped = dedupeByUrl(articles);
-        console.log(`[Guardian] articles retrieved: ${deduped.length}`);
-        return deduped;
-        
-    } catch (error) {
-        console.log('[Guardian] articles retrieved: 0');
-        return [];
+async function fetchGuardianNews() {
+  const key = process.env.GUARDIAN_API_KEY;
+  if (!key || key === 'your_guardian_api_key_here') {
+    console.warn('[Guardian] GUARDIAN_API_KEY not configured — skipping');
+    return [];
+  }
+
+  const results = await Promise.allSettled(
+    GUARDIAN_QUERIES.map(async (q) => {
+      const url = `https://content.guardianapis.com/search?q=${encodeURIComponent(q)}&api-key=${key}&page-size=50&order-by=newest`;
+      const r = await fetchWithTimeout(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+  );
+
+  const merged = [];
+  for (const r of results) {
+    if (r.status !== 'fulfilled') continue;
+    for (const article of r.value.response?.results || []) {
+      const u = (article.webUrl || '').trim();
+      if (!u) continue;
+      merged.push({
+        title: article.webTitle || '',
+        url: u,
+        domain: extractDomain(u) || 'theguardian.com',
+        sourcecountry: 'uk',
+        seendate: article.webPublicationDate || '',
+        _api: 'guardian',
+      });
     }
+  }
+
+  const deduped = dedupeByUrl(merged);
+  console.log(`[Guardian] articles retrieved: ${deduped.length}`);
+  return deduped;
 }
 
 module.exports = { fetchGuardianNews };

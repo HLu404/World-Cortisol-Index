@@ -15,6 +15,8 @@ const { fetchGdelt } = require('../services/gdelt');
 const { fetchGnews } = require('../services/gnews');
 const { fetchNewsdata } = require('../services/newsdata');
 const { fetchNewsapi } = require('../services/newsapi');
+const { fetchGuardianNews } = require('../services/guardian');
+const { fetchMediastackNews } = require('../services/mediastack');
 const { dedupeByUrl } = require('../services/_helpers');
 
 const router = express.Router();
@@ -89,21 +91,33 @@ router.get('/newsapi', async (_req, res) => {
   res.json({ count: articles.length, articles });
 });
 
+router.get('/guardian', async (_req, res) => {
+  const articles = await fetchOrStale('guardian', fetchGuardianNews);
+  res.json({ count: articles.length, articles });
+});
+
+router.get('/mediastack', async (_req, res) => {
+  const articles = await fetchOrStale('mediastack', fetchMediastackNews);
+  res.json({ count: articles.length, articles });
+});
+
 /**
- * /api/news/all — fetch from all four APIs in parallel, merge and dedupe.
+ * /api/news/all — fetch from all APIs in parallel, merge and dedupe.
  * Each upstream is independently cached, so a failure in one doesn't taint
  * the others. Per-API counts are returned alongside the merged list for
  * UI display.
  */
 router.get('/all', async (_req, res) => {
-  const [gdelt, gnews, newsdata, newsapi] = await Promise.all([
+  const [gdelt, gnews, newsdata, newsapi, guardian, mediastack] = await Promise.all([
     fetchOrStale('gdelt', fetchGdelt),
     fetchOrStale('gnews', fetchGnews),
     fetchOrStale('newsdata', fetchNewsdata),
     fetchOrStale('newsapi', fetchNewsapi),
+    fetchOrStale('guardian', fetchGuardianNews),
+    fetchOrStale('mediastack', fetchMediastackNews),
   ]);
 
-  const merged = dedupeByUrl([...gdelt, ...gnews, ...newsdata, ...newsapi]);
+  const merged = dedupeByUrl([...gdelt, ...gnews, ...newsdata, ...newsapi, ...guardian, ...mediastack]);
   res.json({
     count: merged.length,
     perApi: {
@@ -111,6 +125,8 @@ router.get('/all', async (_req, res) => {
       gnews: gnews.length,
       newsdata: newsdata.length,
       newsapi: newsapi.length,
+      guardian: guardian.length,
+      mediastack: mediastack.length,
     },
     articles: merged,
   });

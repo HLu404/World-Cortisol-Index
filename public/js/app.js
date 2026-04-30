@@ -587,9 +587,18 @@ function updateApiBadges(perApi) {
 // BUILD NEWS PAYLOAD
 // ─────────────────────────────────────────
 function buildNewsPayload(articles) {
+  // Cap to the 3000 most-recent articles so the city/country regex pass
+  // doesn't freeze the main thread when localStorage has accumulated
+  // tens of thousands of entries across multiple reloads.
+  const MAX_BUILD = 3000;
+  const MAX_DOTS_PER_CLUSTER = 25;
+  const input = articles.length > MAX_BUILD
+    ? articles.slice().sort((a, b) => (b.fetchedAt || 0) - (a.fetchedAt || 0)).slice(0, MAX_BUILD)
+    : articles;
+
   const locationBuckets = {}, byCountry = {};
 
-  for (const art of articles) {
+  for (const art of input) {
     const title = (art.title || '').trim();
     const url   = (art.url || '').trim();
     if (!title || !url) continue;
@@ -607,10 +616,13 @@ function buildNewsPayload(articles) {
         country: loc.iso, countryName: loc.country, articles: [],
       };
     }
-    locationBuckets[key].articles.push({
-      url, title, meta: art.domain || '', api: art._api || '',
-      tone: +tone.toFixed(3), cortisol: +cortisol.toFixed(3),
-    });
+    // Cap dots per cluster to keep rendering fast and prevent overlap
+    if (locationBuckets[key].articles.length < MAX_DOTS_PER_CLUSTER) {
+      locationBuckets[key].articles.push({
+        url, title, meta: art.domain || '', api: art._api || '',
+        tone: +tone.toFixed(3), cortisol: +cortisol.toFixed(3),
+      });
+    }
 
     if (loc.iso) {
       if (!byCountry[loc.iso]) byCountry[loc.iso] = { name: loc.country || loc.iso, tones: [], count: 0 };
@@ -708,7 +720,7 @@ function updateGlobeData() {
       .polygonAltitude(d => d === hoveredCountry ? 0.014 : 0.008)
       .polygonCapColor(d => {
         if (d === hoveredCountry) {
-          const c = news.countries[isoOf(d)];
+          const c = news?.countries?.[isoOf(d)];
           if (c) return cortisolColor(c.cortisol, 0.92);
           return 'rgba(180, 200, 170, 0.65)';
         }
@@ -716,7 +728,7 @@ function updateGlobeData() {
       })
       .polygonSideColor(d => {
         if (d === hoveredCountry) {
-          const c = news.countries[isoOf(d)];
+          const c = news?.countries?.[isoOf(d)];
           if (c) return cortisolColor(c.cortisol, 0.4);
           return 'rgba(180, 200, 170, 0.3)';
         }
@@ -724,13 +736,13 @@ function updateGlobeData() {
       })
       .polygonStrokeColor(() => 'rgba(20, 60, 30, 0.55)')
       .polygonLabel(d => {
-        const iso = isoOf(d), c = news.countries[iso], name = nameOf(d);
+        const iso = isoOf(d), c = news?.countries?.[iso], name = nameOf(d);
         if (!c) return `<div class="tt"><b>${escapeHtml(name)}</b><br><span style="color:var(--text-dim)">No recent news</span></div>`;
         return `<div class="tt"><b>${escapeHtml(name)}</b><br>Avg cortisol: <b style="color:${cortisolColor(c.cortisol)}">${c.cortisol.toFixed(2)}</b><br>${c.count} article${c.count===1?'':'s'} · click for details</div>`;
       })
       .onPolygonClick(d => {
         const iso = isoOf(d);
-        const c = news.countries[iso];
+        const c = news?.countries?.[iso];
         const name = nameOf(d);
         if (c) showCountryAverage(d, iso, c, name);
         else   showCountryAverage(d, iso, null, name);
@@ -814,10 +826,10 @@ function updateGlobeData() {
     const featBbox = geom ? bbox(geom) : null;
 
     const tiers = [
-      [1.95, 0.65], [1.45, 0.50], [1.05, 0.38],
-      [0.75, 0.28], [0.55, 0.22], [0.40, 0.18], [0.28, 0.14],
+      [2.50, 0.38], [1.90, 0.29], [1.40, 0.21],
+      [1.00, 0.15], [0.75, 0.11], [0.55, 0.09], [0.40, 0.07],
     ];
-    const budget = Math.max(80, n * 10);
+    const budget = Math.max(100, n * 12);
 
     for (const [stepDeg, dotRadius] of tiers) {
       const positions = [];
@@ -835,12 +847,15 @@ function updateGlobeData() {
     const [stepDeg, dotRadius] = tiers[tiers.length - 1];
     const positions = [];
     for (let i = 0; positions.length < n; i++) {
-      if (i > n * 30) { 
+      if (i > n * 30) {
+        const gi = positions.length;
+        const gx = (gi % 7) - 3;
+        const gy = Math.floor(gi / 7) - 3;
         positions.push([
-          lat0 + (Math.random() - 0.5) * 0.3, 
-          lon0 + (Math.random() - 0.5) * 0.3
-        ]); 
-        continue; 
+          lat0 + gy * 0.06,
+          lon0 + (gx * 0.06) / cosLat,
+        ]);
+        continue;
       }
       
       const r = stepDeg * Math.sqrt(i);
@@ -861,12 +876,14 @@ function updateGlobeData() {
     const { positions, dotRadius } = packInsideFeature(loc.lat, loc.lon, n, feature);
     for (let i = 0; i < n; i++) {
       const [lat, lon] = positions[i];
+      const altHash = hashStr((loc.articles[i].url || '') + String(i));
       dots.push({
         lat, lon,
         cortisol: loc.articles[i].cortisol,
         article: loc.articles[i],
         radius: dotRadius,
         loc,
+        alt: 0.016 + (altHash % 1000) / 500000,
       });
     }
   }
@@ -877,7 +894,7 @@ function updateGlobeData() {
     // -------------------------------------------------------------
     // 3D FIX: Dots raised to 0.016 to sit above the borders
     // -------------------------------------------------------------
-    .pointAltitude(() => 0.016 + (Math.random() * 0.002)) 
+    .pointAltitude(d => d.alt)
     .pointRadius(d => d.radius)
     .pointColor(d => cortisolColor(d.cortisol, 0.95))
     .pointResolution(8)
@@ -957,7 +974,7 @@ function showCountryAverage(feature, iso, c, name) {
 // ─────────────────────────────────────────
 function showArticle(a, loc) {
   globe.pointOfView({ lat: loc.lat, lng: loc.lon, altitude: 1.4 }, 900);
-  const apiColors = { gdelt:'#4da8ff', gnews:'#a47cff', newsdata:'#2dd47a', newsapi:'#e8c840' };
+  const apiColors = { gdelt:'#4da8ff', gnews:'#a47cff', newsdata:'#2dd47a', newsapi:'#e8c840', guardian:'#ff6b6b', mediastack:'#ff9900' };
   const apiTag = a.api ? `<span class="api-tag" style="background:${apiColors[a.api]||'#666'}22;color:${apiColors[a.api]||'#aaa'}">${a.api.toUpperCase()}</span>` : '';
   $articlePanel.innerHTML = `
     <h2>📰 Article</h2>
@@ -978,7 +995,7 @@ function showArticle(a, loc) {
 function showLocation(loc) {
   globe.pointOfView({ lat: loc.lat, lng: loc.lon, altitude: 1.6 }, 1200);
 
-  const apiColors = { gdelt:'#4da8ff', gnews:'#a47cff', newsdata:'#2dd47a', newsapi:'#e8c840' };
+  const apiColors = { gdelt:'#4da8ff', gnews:'#a47cff', newsdata:'#2dd47a', newsapi:'#e8c840', guardian:'#ff6b6b', mediastack:'#ff9900' };
 
   const arts = loc.articles.slice(0, 20).map(a => `
     <li class="article">
@@ -1073,7 +1090,7 @@ async function refresh() {
     const fresh = await fetchAllApis();
     const { merged, added, firstFetch } = mergeIntoStore(fresh);
     sessionNewCount += added;
-    news = buildNewsPayload(merged);
+    news = buildNewsPayload(merged.length > 0 ? merged : DEMO_ARTICLES);
     if (globeInitialized) updateGlobeData();
     initChart();
     const countryCount = Object.keys(news.countries).length;
