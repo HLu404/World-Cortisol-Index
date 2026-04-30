@@ -4,7 +4,7 @@ A real-time global "stress map" — a 3D Earth where each country is colored by 
 
 <img width="1913" height="838" alt="image" src="https://github.com/user-attachments/assets/c1d0debc-1b6e-43f4-be18-e43376e13659" />
 
-The world today is filled with disinformation, doomposting, and gloom. But how bad can it be? The World Cortisol Index allows you to take a look at the world, one article at a time, and see which countries are experiencing turmoil, political unrest, and general high cortisol. The index provides a brief look at the world today, giving users the opportunity to see for themselves how bad things are getting. Will WW3 begin? Is Canada on fire today? fnid out with the World Cortisol Index.
+The world today is filled with disinformation, doomposting, and gloom. But how bad can it be? The World Cortisol Index allows you to take a look at the world, one article at a time, and see which countries are experiencing turmoil, political unrest, and general high cortisol. The index provides a brief look at the world today, giving users the opportunity to see for themselves how bad things are getting. Will WW3 begin? Is Canada on fire today? find out with the World Cortisol Index.
 
 <img width="1911" height="908" alt="image" src="https://github.com/user-attachments/assets/14007145-c2f1-4727-82a1-de44f14a790c" />
 
