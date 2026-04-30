@@ -16,10 +16,10 @@ This repo is the **full-stack rewrite** of an earlier single-file HTML build. Th
 
 ```
 ┌──────────────────────────────────┐         ┌──────────────────────────┐
-│  Browser  (public/index.html,    │         │   Express server          │
-│            css/styles.css,       │         │   (server.js)             │
+│  Browser  (public/index.html,    │         │   Express server         │
+│            css/styles.css,       │         │   (server.js)            │
 │            js/app.js)            │         │                          │
-│                                  │  ────▶  │  /api/news/all  ─┐       │
+│                                  │  ────▶    /api/news/all  ─┐      
 │  - 3D globe (globe.gl)           │         │  /api/news/gdelt │       │
 │  - Sentiment scoring             │         │  /api/news/gnews │       │
 │  - Geocoding (Natural Earth)     │         │  /api/news/...   │       │
@@ -27,8 +27,8 @@ This repo is the **full-stack rewrite** of an earlier single-file HTML build. Th
 └──────────────────────────────────┘         │   In-memory cache (TTL)  │
                                              │                  │       │
                                              │                  ▼       │
-                                             │   GDELT / GNews / NewsData │
-                                             │   / NewsAPI (keys in .env) │
+                                             │ GDELT / GNews / NewsData │
+                                             │ / NewsAPI (keys in .env) │
                                              └──────────────────────────┘
 ```
 
