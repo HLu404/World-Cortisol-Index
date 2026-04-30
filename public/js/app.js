@@ -606,8 +606,13 @@ function buildNewsPayload(articles) {
     const loc = geocodeArticle(title, art.sourcecountry || '', url);
     if (!loc) continue;
 
-    const tone     = computeTone(title);
-    const cortisol = toneToCortisol(tone);
+    const tone = computeTone(title);
+    // Prefer the HF-computed cortisol score supplied by the backend;
+    // fall back to the local word-lexicon when it is absent (no HF key,
+    // or article loaded from a pre-HF localStorage snapshot).
+    const cortisol = (typeof art.cortisol === 'number')
+      ? art.cortisol
+      : toneToCortisol(tone);
     const key = `${(Math.round(loc.lat*2)/2).toFixed(1)},${(Math.round(loc.lon*2)/2).toFixed(1)}`;
 
     if (!locationBuckets[key]) {
@@ -625,8 +630,9 @@ function buildNewsPayload(articles) {
     }
 
     if (loc.iso) {
-      if (!byCountry[loc.iso]) byCountry[loc.iso] = { name: loc.country || loc.iso, tones: [], count: 0 };
+      if (!byCountry[loc.iso]) byCountry[loc.iso] = { name: loc.country || loc.iso, tones: [], cortisols: [], count: 0 };
       byCountry[loc.iso].tones.push(tone);
+      byCountry[loc.iso].cortisols.push(cortisol);
       byCountry[loc.iso].count++;
     }
   }
@@ -634,18 +640,19 @@ function buildNewsPayload(articles) {
   const locations = [];
   for (const bucket of Object.values(locationBuckets)) {
     if (!bucket.articles.length) continue;
-    const avgTone = bucket.articles.reduce((s, a) => s + a.tone, 0) / bucket.articles.length;
-    bucket.tone     = +avgTone.toFixed(3);
-    bucket.cortisol = +toneToCortisol(avgTone).toFixed(3);
+    const avgCortisol = bucket.articles.reduce((s, a) => s + a.cortisol, 0) / bucket.articles.length;
+    bucket.tone     = +(bucket.articles.reduce((s, a) => s + a.tone, 0) / bucket.articles.length).toFixed(3);
+    bucket.cortisol = +avgCortisol.toFixed(3);
     locations.push(bucket);
   }
 
   const countries = {};
   for (const [iso, v] of Object.entries(byCountry)) {
-    const avg = v.tones.length ? v.tones.reduce((s,t) => s+t, 0) / v.tones.length : 0;
+    const avgTone     = v.tones.length     ? v.tones.reduce((s,t) => s+t, 0)     / v.tones.length     : 0;
+    const avgCortisol = v.cortisols.length ? v.cortisols.reduce((s,c) => s+c, 0) / v.cortisols.length : toneToCortisol(avgTone);
     countries[iso] = {
-      name: v.name, avgTone: +avg.toFixed(3),
-      cortisol: +toneToCortisol(avg).toFixed(3), count: v.count,
+      name: v.name, avgTone: +avgTone.toFixed(3),
+      cortisol: +avgCortisol.toFixed(3), count: v.count,
     };
   }
 

@@ -424,18 +424,20 @@ main {
   margin-top: 2px;
 }
 .api-badges {
-  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px;
+  display: flex; flex-wrap: nowrap; gap: 4px; margin-top: 9px;
 }
 .api-badge {
-  font-family: var(--font-display); font-size: 9px;
-  letter-spacing: 0.8px; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 4px;
-  border: 1px solid;
+  font-family: var(--font-display); font-size: 8px;
+  letter-spacing: 0.4px; text-transform: uppercase;
+  padding: 2px 5px; border-radius: 4px;
+  border: 1px solid; white-space: nowrap;
 }
-.api-badge.gdelt { color: #4da8ff; border-color: rgba(77,168,255,0.3); }
-.api-badge.gnews { color: #a47cff; border-color: rgba(164,124,255,0.3); }
-.api-badge.newsdata { color: #2dd47a; border-color: rgba(45,212,122,0.3); }
-.api-badge.newsapi { color: #e8c840; border-color: rgba(232,200,64,0.3); }
+.api-badge.gdelt      { color: #4da8ff; border-color: rgba(77,168,255,0.3); }
+.api-badge.gnews      { color: #a47cff; border-color: rgba(164,124,255,0.3); }
+.api-badge.newsdata   { color: #2dd47a; border-color: rgba(45,212,122,0.3); }
+.api-badge.newsapi    { color: #e8c840; border-color: rgba(232,200,64,0.3); }
+.api-badge.guardian   { color: #ff6b6b; border-color: rgba(255,107,107,0.3); }
+.api-badge.mediastack { color: #ff9900; border-color: rgba(255,153,0,0.3); }
 
 /* Article panel */
 .loc-name { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: #fff; }

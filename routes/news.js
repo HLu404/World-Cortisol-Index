@@ -17,6 +17,7 @@ const { fetchNewsdata } = require('../services/newsdata');
 const { fetchNewsapi } = require('../services/newsapi');
 const { fetchGuardianNews } = require('../services/guardian');
 const { fetchMediastackNews } = require('../services/mediastack');
+const { analyzeArticles } = require('../services/hf');
 const { dedupeByUrl } = require('../services/_helpers');
 
 const router = express.Router();
@@ -117,18 +118,23 @@ router.get('/all', async (_req, res) => {
     fetchOrStale('mediastack', fetchMediastackNews),
   ]);
 
-  const merged = dedupeByUrl([...gdelt, ...gnews, ...newsdata, ...newsapi, ...guardian, ...mediastack]);
+  const raw      = dedupeByUrl([...gdelt, ...gnews, ...newsdata, ...newsapi, ...guardian, ...mediastack]);
+  // Enrich with HF emotion scores when HF_API_KEY is configured.
+  // analyzeArticles() is a no-op (returns raw unchanged) when the key is absent.
+  const articles = await analyzeArticles(raw);
+
   res.json({
-    count: merged.length,
+    count:     articles.length,
+    hfEnabled: !!process.env.HF_API_KEY,
     perApi: {
-      gdelt: gdelt.length,
-      gnews: gnews.length,
-      newsdata: newsdata.length,
-      newsapi: newsapi.length,
-      guardian: guardian.length,
+      gdelt:      gdelt.length,
+      gnews:      gnews.length,
+      newsdata:   newsdata.length,
+      newsapi:    newsapi.length,
+      guardian:   guardian.length,
       mediastack: mediastack.length,
     },
-    articles: merged,
+    articles,
   });
 });
 
