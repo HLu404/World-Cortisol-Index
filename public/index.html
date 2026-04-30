@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>World Cortisol Index — Global News Stress Map</title>
+<meta name="description" content="Real-time global stress, mapped on a 3D Earth using sentiment analysis of live news from GDELT, GNews, NewsData and NewsAPI." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Outfit:wght@200;300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     HOMEPAGE
+═══════════════════════════════════════ -->
+<div id="homepage">
+  <canvas id="hp-canvas"></canvas>
+  <div class="hp-grid"></div>
+  <div class="hp-vignette"></div>
+
+  <div class="hp-content">
+    <div class="hp-logo-ring">
+      <span class="hp-logo-emoji">🧠</span>
+    </div>
+
+    <p class="hp-eyebrow">A Global Intelligence Project</p>
+    <h1 class="hp-title"><span>World Cortisol Index</span></h1>
+    <p class="hp-sub">Real-time global stress, mapped on a living 3D Earth</p>
+
+    <div class="hp-stats">
+      <div class="hp-stat">
+        <span class="hp-stat-val" id="hp-total">—</span>
+        <span class="hp-stat-lbl">Articles Stored</span>
+      </div>
+      <div class="hp-stat">
+        <span class="hp-stat-val" id="hp-countries">—</span>
+        <span class="hp-stat-lbl">Countries</span>
+      </div>
+      <div class="hp-stat">
+        <span class="hp-stat-val">4</span>
+        <span class="hp-stat-lbl">News APIs</span>
+      </div>
+      <div class="hp-stat">
+        <span class="hp-stat-val" id="hp-since">—</span>
+        <span class="hp-stat-lbl">Tracking Since</span>
+      </div>
+    </div>
+
+    <p class="hp-desc">
+      The World Cortisol Index monitors planetary stress through live news analysis.
+      Articles accumulate from <strong style="color:var(--text)">GDELT, GNews, NewsData &amp; NewsAPI</strong>
+      — building a growing historical record. Each country is scored 0→1
+      from <span class="hp-good">calm (green)</span> to <span class="hp-bad">stressed (red)</span>
+      based on headline sentiment. The globe breathes with the world's anxiety.
+    </p>
+
+    <button id="hp-enter" class="hp-enter">
+      <span>ENTER THE GLOBE</span>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <div class="hp-legend">
+      <div class="hp-legend-dot" style="background:var(--good)"></div>
+      <span>Calm</span>
+      <div class="hp-legend-bar"></div>
+      <span>Stressed</span>
+      <div class="hp-legend-dot" style="background:var(--bad)"></div>
+    </div>
+  </div>
+
+  <div class="hp-footer">
+    POWERED BY GDELT · GNEWS · NEWSDATA · NEWSAPI &nbsp;·&nbsp; ARTICLES ACCUMULATE OVER TIME
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════ -->
+<div id="app" class="app-hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">🧠</div>
+      <div>
+        <h1>World Cortisol Index</h1>
+        <p class="tagline">Live global news stress · Accumulated archive</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="status" class="status">INITIALIZING…</span>
+      <button id="home-btn" type="button">⌂ HOME</button>
+      <button id="refresh" type="button">↻ REFRESH</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="globe-wrap">
+      <div id="loading-overlay">
+        <div class="loader-ring"></div>
+        <div class="loader-text" id="loader-text">Initializing…</div>
+        <div class="loader-progress"><div class="loader-fill" id="loader-fill"></div></div>
+      </div>
+      <div id="globe"></div>
+      <div id="globe-legend">
+        <div class="lg-row">
+          <span class="lg-dot" style="background:var(--good)"></span>
+          <span>calm</span>
+          <span class="lg-bar"></span>
+          <span>stressed</span>
+          <span class="lg-dot" style="background:var(--bad)"></span>
+        </div>
+        <div class="lg-cap">cortisol · 0 → 1</div>
+      </div>
+    </div>
+
+    <aside id="sidebar">
+      <!-- Archive panel -->
+      <section id="archive-panel" class="panel">
+        <h2>📦 Article Archive</h2>
+        <div class="archive-grid">
+          <div class="archive-cell">
+            <div class="archive-val" id="arc-total">—</div>
+            <div class="archive-lbl">Total Stored</div>
+          </div>
+          <div class="archive-cell">
+            <div class="archive-val" id="arc-session">—</div>
+            <div class="archive-lbl">This Session</div>
+          </div>
+          <div class="archive-cell">
+            <div class="archive-val" id="arc-countries">—</div>
+            <div class="archive-lbl">Countries</div>
+          </div>
+          <div class="archive-cell">
+            <div class="archive-val" id="arc-since">—</div>
+            <div class="archive-lbl">Tracking Since</div>
+          </div>
+        </div>
+        <div class="api-badges" id="api-badges">
+          <span class="api-badge gdelt">GDELT</span>
+          <span class="api-badge gnews">GNews</span>
+          <span class="api-badge newsdata">NewsData</span>
+          <span class="api-badge newsapi">NewsAPI</span>
+        </div>
+      </section>
+
+      <!-- Article panel -->
+      <section id="article-panel" class="panel">
+        <h2>📍 Selected Location</h2>
+        <p class="hint">Click a marker on the globe to see its news articles.</p>
+      </section>
+
+      <!-- Chart panel -->
+      <section id="chart-panel" class="panel">
+        <h2>📊 Global Cortisol Index</h2>
+        <div id="chart-wrap"><canvas id="chart"></canvas></div>
+        <div id="chart-summary" class="chart-summary"></div>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<!-- 3rd-party libraries (3D globe + charts) — fetched from public CDN.
+     `app.js` falls back to alternate CDNs at runtime if any of these fail. -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.32.0/dist/globe.gl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
