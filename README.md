@@ -1,6 +1,6 @@
 # World Cortisol Index
 
-A real-time global "stress map" — a 3D Earth where each country is colored by the sentiment of its current news headlines. Articles are pulled from **GDELT, GNews, NewsData,** and **NewsAPI**, scored with a positive/negative lexicon, and rendered on a rotating globe.
+A real-time global "stress map" — a 3D Earth where each country is colored by the sentiment of its current news headlines. Articles are pulled from **GDELT, GNews, NewsData,** and **NewsAPI**, scored with a positive/negative lexicon, and rendered on a rotating globe. Built for Conhacks 2026 Hackathon.
 
 <img width="1913" height="838" alt="image" src="https://github.com/user-attachments/assets/c1d0debc-1b6e-43f4-be18-e43376e13659" />
 
